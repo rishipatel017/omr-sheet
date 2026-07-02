@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="omrApp">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMR Pro · Generator & Evaluator</title>
+  <!-- AngularJS 1.8.1 -->
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.1/angular.min.js">
+  </script>
+  <style>
+    /* ----- reset & base ----- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+      background: #f2f6f9;
+      padding: 16px;
+      color: #1d2f3a;
+    }
+    .app {
+      max-width: 1440px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 20px 48px -12px rgba(0, 20, 30, 0.25);
+      padding: 20px 24px 32px;
+      border: 1px solid #e2edf4;
+    }
+
+    /* ----- toolbar (sticky) ----- */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 18px;
+      background: #ffffffec;
+      backdrop-filter: blur(4px);
+      padding: 14px 22px;
+      border-radius: 60px;
+      margin-bottom: 24px;
+      border: 1px solid #e8f0f5;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+      position: sticky;
+      top: 12px;
+      z-index: 50;
+    }
+    .toolbar .brand {
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: #12404e;
+      margin-right: 8px;
+      letter-spacing: -0.3px;
+    }
+    .toolbar .brand small {
+      font-weight: 400;
+      font-size: 0.8rem;
+      color: #3b7387;
+      background: #daeaf2;
+      padding: 2px 12px;
+      border-radius: 40px;
+      margin-left: 6px;
+    }
+    .toolbar .group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 12px;
+    }
+    .toolbar label {
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: #1a4a5a;
+    }
+    .toolbar input[type="number"] {
+      width: 70px;
+      padding: 8px 6px;
+      border: 2px solid #c7dbe5;
+      border-radius: 30px;
+      background: #fafefe;
+      text-align: center;
+      font-weight: 600;
+      outline: none;
+      transition: 0.2s;
+    }
+    .toolbar input[type="number"]:focus {
+      border-color: #1f7a8c;
+      box-shadow: 0 0 0 4px #1f7a8c30;
+    }
+    .toolbar select {
+      padding: 8px 14px;
+      border-radius: 30px;
+      border: 2px solid #c7dbe5;
+      background: #fafefe;
+      font-weight: 500;
+      outline: none;
+    }
+    .btn {
+      background: #eaf2f7;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #12404e;
+      cursor: pointer;
+      transition: 0.15s;
+      border: 1px solid transparent;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .btn-primary {
+      background: #1b5a6b;
+      color: white;
+      border-color: #1b5a6b;
+    }
+    .btn-primary:hover { background: #236e82; }
+    .btn-outline { border-color: #b6d0da; }
+    .btn-outline:hover { background: #dcebf2; }
+    .btn-success { background: #1f7a4b; color: white; }
+    .btn-danger { background: #b13e3e; color: white; }
+    .btn-sm { padding: 4px 14px; font-size: 0.8rem; }
+
+    /* ----- sheet grid (multi-column) ----- */
+    .sheet-container {
+      background: #f8fbfd;
+      border-radius: 28px;
+      padding: 16px 12px 12px 16px;
+      border: 1px solid #e2edf4;
+      margin: 8px 0 16px;
+      max-height: 620px;
+      overflow-y: auto;
+    }
+    .sheet-grid {
+      display: grid;
+      gap: 6px 20px;
+    }
+    .sheet-grid.col-1 { grid-template-columns: 1fr; }
+    .sheet-grid.col-2 { grid-template-columns: 1fr 1fr; }
+    .sheet-grid.col-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px 4px 4px;
+      border-radius: 40px;
+      transition: 0.05s;
+      background: transparent;
+    }
+    .row:hover { background: #deecf3b0; }
+    .qno {
+      width: 48px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #1a4350;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .qno .qnum { display: inline-block; min-width: 36px; }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      padding-left: 4px;
+    }
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: #1d4a59;
+      cursor: pointer;
+      padding: 2px 6px 2px 2px;
+      border-radius: 30px;
+      transition: 0.08s;
+    }
+    .option:hover { background: #c3dde970; }
+    .option input[type="radio"] {
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #2b5b6b;
+      border-radius: 50%;
+      background: #fafefe;
+      cursor: pointer;
+      transition: 0.08s;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 3px #00000010;
+    }
+    .option input[type="radio"]:checked {
+      background: #0b3b47;
+      border-color: #0b3b47;
+      box-shadow: 0 0 0 3px #b2dae8, 0 0 0 6px #e7f3f8;
+      transform: scale(0.92);
+    }
+    .option input[type="radio"]:checked + span { font-weight: 600; color: #05313d; }
+    /* evaluation colors */
+    .row.correct .qno { color: #1a7a4b; }
+    .row.wrong .qno { color: #b13e3e; }
+    .row.unanswered .qno { color: #7d8f97; }
+    .option.correct-opt input[type="radio"] { border-color: #1a7a4b; background: #dff0e6; }
+    .option.wrong-opt input[type="radio"] { border-color: #b13e3e; background: #f3e0e0; }
+    .option.correct-opt input[type="radio"]:checked { background: #1a7a4b; border-color: #1a7a4b; }
+    .option.wrong-opt input[type="radio"]:checked { background: #b13e3e; border-color: #b13e3e; }
+
+    /* ----- evaluator panel ----- */
+    .eval-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-top: 12px;
+    }
+    .eval-left {
+      flex: 2 1 380px;
+      background: #f6fafc;
+      border-radius: 28px;
+      padding: 18px 20px;
+      border: 1px solid #e2edf4;
+    }
+    .eval-right {
+      flex: 1 1 260px;
+      background: #f6fafc;
+      border-radius: 28px;
+      padding: 18px 20px;
+      border: 1px solid #e2edf4;
+    }
+    .eval-left textarea {
+      width: 100%;
+      border: 2px solid #c7dbe5;
+      border-radius: 20px;
+      padding: 12px 16px;
+      font-family: monospace;
+      font-size: 0.95rem;
+      resize: vertical;
+      background: white;
+      outline: none;
+    }
+    .eval-left textarea:focus { border-color: #1f7a8c; box-shadow: 0 0 0 4px #1f7a8c30; }
+    .eval-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 10px;
+      margin: 8px 0 12px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 20px;
+      padding: 10px 6px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      border: 1px solid #e2edf4;
+    }
+    .stat-card .num {
+      font-weight: 700;
+      font-size: 1.8rem;
+      line-height: 1.2;
+    }
+    .stat-card .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #3f7387;
+    }
+    .stat-card.correct .num { color: #1a7a4b; }
+    .stat-card.wrong .num { color: #b13e3e; }
+    .stat-card.unanswered .num { color: #7d8f97; }
+    .stat-card.score .num { color: #12404e; }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .filter-bar .btn { font-size: 0.8rem; padding: 4px 16px; }
+    .filter-bar .btn.active { background: #1b5a6b; color: white; border-color: #1b5a6b; }
+
+    .float-nav {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 100;
+    }
+    .float-nav .btn {
+      background: #ffffffec;
+      backdrop-filter: blur(4px);
+      border: 1px solid #c7dbe5;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      padding: 6px 14px;
+      font-size: 0.8rem;
+    }
+    .float-nav .btn:hover { background: #dcebf2; }
+
+    /* print */
+    @media print {
+      .toolbar, .float-nav, .no-print { display: none !important; }
+      .app { box-shadow: none; border: none; padding: 10px; }
+      .sheet-container { max-height: none; overflow: visible; }
+      .sheet-grid { gap: 2px; }
+      .row { break-inside: avoid; }
+      body { background: white; padding: 0; }
+      .eval-panel { break-inside: avoid; }
+    }
+    /* responsive */
+    @media (max-width: 700px) {
+      .sheet-grid.col-2, .sheet-grid.col-3 { grid-template-columns: 1fr; }
+      .toolbar { border-radius: 28px; padding: 12px 16px; }
+      .app { padding: 12px; }
+    }
+    /* toast */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1d2f3a;
+      color: white;
+      padding: 12px 28px;
+      border-radius: 60px;
+      font-weight: 500;
+      z-index: 999;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .empty-state { padding: 30px 10px; text-align: center; color: #5f7985; }
+  </style>
+</head>
+
+<body ng-controller="OMRController as vm">
+  <!-- Toast -->
+  <div class="toast" ng-class="{show: vm.toastMsg}" ng-bind="vm.toastMsg"></div>
+
+  <div class="app">
+    <!-- toolbar -->
+    <div class="toolbar">
+      <span class="brand">OMR <small>Pro</small></span>
+      <div class="group">
+        <label>Q <input type="number" ng-model="vm.qCount" min="1" max="500" ng-init="vm.qCount=20"></label>
+        <label>Opt <select ng-model="vm.optCount" ng-init="vm.optCount=4" ng-options="o for o in [2,3,4,5,6,7,8]"></select></label>
+        <label>Cols <select ng-model="vm.cols" ng-init="vm.cols=2" ng-options="c for c in [1,2,3]"></select></label>
+        <button class="btn btn-primary" ng-click="vm.generate()">⟳ Generate</button>
+      </div>
+      <div class="group">
+        <button class="btn btn-outline btn-sm" ng-click="vm.clearAll()">✕ Clear</button>
+        <button class="btn btn-outline btn-sm" ng-click="vm.selectAllNone()">◉ All/None</button>
+        <button class="btn btn-success btn-sm" ng-click="vm.evaluate()">✔ Evaluate</button>
+        <button class="btn btn-outline btn-sm" ng-click="vm.print()">🖨 Print</button>
+        <button class="btn btn-outline btn-sm" ng-click="vm.exportCSV()">⬇ CSV</button>
+      </div>
+    </div>
+
+    <!-- sheet -->
+    <div class="sheet-container">
+      <div ng-if="vm.questions.length===0" class="empty-state">📄 Set questions &amp; Generate</div>
+      <div class="sheet-grid" ng-class="'col-'+vm.cols">
+        <div ng-repeat="q in vm.questions track by $index" 
+             class="row" 
+             ng-class="{correct: q.evalStatus==='correct', wrong: q.evalStatus==='wrong', unanswered: q.evalStatus==='unanswered'}">
+          <div class="qno"><span class="qnum">{{ $index+1 | pad }}</span></div>
+          <div class="options">
+            <label class="option" ng-repeat="opt in vm.optionLetters track by opt" 
+                   ng-class="{'correct-opt': q.evalStatus==='correct' && q.selected===opt, 'wrong-opt': q.evalStatus==='wrong' && q.selected===opt}">
+              <input type="radio" 
+                     name="q{{ $index }}" 
+                     value="{{ opt }}"
+                     ng-model="q.selected"
+                     ng-change="vm.autoEval()">
+              <span>{{ opt }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- evaluation panel -->
+    <div class="eval-panel no-print">
+      <div class="eval-left">
+        <div class="eval-row">
+          <div style="flex:1"><label>Answer Key (comma/space)</label>
+            <textarea rows="2" ng-model="vm.answerKey" ng-change="vm.autoEval()" placeholder="A,B,C,D,A..."></textarea>
+          </div>
+          <div style="flex:1"><label>Student Answers (optional)</label>
+            <textarea rows="2" ng-model="vm.studentAns" ng-change="vm.autoEval()" placeholder="leave empty to use bubbles"></textarea>
+          </div>
+        </div>
+        <div class="eval-row">
+          <label>Marking: +<input type="number" ng-model="vm.markCorrect" ng-change="vm.autoEval()" style="width:50px;border-radius:20px;border:2px solid #c7dbe5;padding:4px 8px;"> 
+            –<input type="number" ng-model="vm.markWrong" ng-change="vm.autoEval()" style="width:50px;border-radius:20px;border:2px solid #c7dbe5;padding:4px 8px;"></label>
+          <button class="btn btn-success btn-sm" ng-click="vm.evaluate()">⟳ Re-evaluate</button>
+        </div>
+        <div class="filter-bar">
+          <button class="btn" ng-class="{active: vm.filter==='all'}" ng-click="vm.filter='all'">All</button>
+          <button class="btn" ng-class="{active: vm.filter==='correct'}" ng-click="vm.filter='correct'">✔ Correct</button>
+          <button class="btn" ng-class="{active: vm.filter==='wrong'}" ng-click="vm.filter='wrong'">✘ Wrong</button>
+          <button class="btn" ng-class="{active: vm.filter==='unanswered'}" ng-click="vm.filter='unanswered'">— Unanswered</button>
+          <input type="text" ng-model="vm.searchQ" placeholder="🔍 Q no." style="border:2px solid #c7dbe5;border-radius:30px;padding:4px 14px;width:120px;">
+        </div>
+      </div>
+      <div class="eval-right">
+        <div class="stat-cards">
+          <div class="stat-card"><div class="num">{{ vm.totalQ }}</div><div class="label">Total</div></div>
+          <div class="stat-card"><div class="num">{{ vm.attempted }}</div><div class="label">Attempted</div></div>
+          <div class="stat-card correct"><div class="num">{{ vm.correctCount }}</div><div class="label">Correct</div></div>
+          <div class="stat-card wrong"><div class="num">{{ vm.wrongCount }}</div><div class="label">Wrong</div></div>
+          <div class="stat-card unanswered"><div class="num">{{ vm.unansweredCount }}</div><div class="label">Blank</div></div>
+          <div class="stat-card score"><div class="num">{{ vm.finalScore }}</div><div class="label">Score</div></div>
+          <div class="stat-card score"><div class="num">{{ vm.percent }}%</div><div class="label">Percent</div></div>
+          <div class="stat-card score"><div class="num">{{ vm.grade }}</div><div class="label">Grade</div></div>
+        </div>
+        <div style="font-size:0.9rem;background:white;border-radius:20px;padding:8px 12px;border:1px solid #e2edf4;">
+          <span ng-if="vm.passFail === 'Pass'" style="color:#1a7a4b;font-weight:700;">✅ PASS</span>
+          <span ng-if="vm.passFail === 'Fail'" style="color:#b13e3e;font-weight:700;">❌ FAIL</span>
+          <span ng-if="!vm.passFail">—</span>
+          <span style="float:right;">{{ vm.correctCount+vm.wrongCount+vm.unansweredCount }} / {{ vm.totalQ }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- floating nav -->
+  <div class="float-nav no-print">
+    <button class="btn" ng-click="vm.scrollTo('top')">⬆ Top</button>
+    <button class="btn" ng-click="vm.scrollTo('bottom')">⬇ Bottom</button>
+    <button class="btn" ng-click="vm.prevWrong()">◄ Prev ✘</button>
+    <button class="btn" ng-click="vm.nextWrong()">Next ✘ ►</button>
+  </div>
+
+  <script>
+    angular.module('omrApp', [])
+    .filter('pad', function() {
+      return function(n) { return ('000'+n).slice(-3); };
+    })
+    .controller('OMRController', ['$scope', '$timeout', function($scope, $timeout) {
+      var vm = this;
+      vm.optionLetters = 'ABCDEFGH'.split('');
+      vm.questions = [];
+      vm.qCount = 20;
+      vm.optCount = 4;
+      vm.cols = 2;
+      vm.answerKey = '';
+      vm.studentAns = '';
+      vm.markCorrect = 4;
+      vm.markWrong = -1;
+      vm.filter = 'all';
+      vm.searchQ = '';
+      vm.toastMsg = '';
+
+      // stats
+      vm.totalQ = 0; vm.attempted = 0; vm.correctCount = 0; vm.wrongCount = 0;
+      vm.unansweredCount = 0; vm.finalScore = 0; vm.percent = 0; vm.grade = '-'; vm.passFail = '';
+
+      function showToast(msg) {
+        vm.toastMsg = msg;
+        $timeout(function() { vm.toastMsg = ''; }, 2500);
+      }
+
+      vm.generate = function() {
+        var n = parseInt(vm.qCount);
+        if (!n || n < 1) { showToast('Enter valid question count'); return; }
+        if (n > 1000) { showToast('Max 1000 questions'); vm.qCount = 1000; n = 1000; }
+        var opts = vm.optionLetters.slice(0, parseInt(vm.optCount) || 4);
+        var qs = [];
+        for (var i = 0; i < n; i++) {
+          qs.push({ selected: null, evalStatus: 'unanswered' });
+        }
+        vm.questions = qs;
+        // auto answer key
+        var defKey = 'ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD';
+        var k = defKey.split('').slice(0, n).join(',');
+        vm.answerKey = k;
+        vm.studentAns = '';
+        vm.evaluate();
+        showToast('Generated ' + n + ' questions');
+      };
+
+      vm.clearAll = function() {
+        angular.forEach(vm.questions, function(q) { q.selected = null; });
+        vm.evaluate();
+        showToast('Cleared all');
+      };
+
+      vm.selectAllNone = function() {
+        var allSelected = vm.questions.every(function(q) { return q.selected !== null; });
+        var opts = vm.optionLetters.slice(0, parseInt(vm.optCount) || 4);
+        angular.forEach(vm.questions, function(q) {
+          q.selected = allSelected ? null : opts[0];
+        });
+        vm.evaluate();
+        showToast(allSelected ? 'All cleared' : 'All selected');
+      };
+
+      vm.print = function() { window.print(); };
+
+      vm.evaluate = function() {
+        var qs = vm.questions;
+        if (!qs || qs.length === 0) return;
+        var keyStr = vm.answerKey || '';
+        var keyArr = keyStr.split(/[,;\s]+/).filter(function(s) { return s.length > 0; });
+        var studentArr = vm.studentAns ? vm.studentAns.split(/[,;\s]+/).filter(function(s) { return s.length > 0; }) : [];
+
+        var correct = 0, wrong = 0, unattempted = 0, attempted = 0;
+        var total = qs.length;
+
+        angular.forEach(qs, function(q, idx) {
+          var expected = (keyArr[idx] || '').toUpperCase().trim();
+          var selected = null;
+          if (studentArr.length > 0) {
+            selected = (studentArr[idx] || '').toUpperCase().trim();
+            // sync bubble
+            if (selected && vm.optionLetters.indexOf(selected) !== -1) {
+              q.selected = selected;
+            } else {
+              q.selected = null;
+            }
+          } else {
+            selected = q.selected ? q.selected.toUpperCase().trim() : null;
+          }
+
+          if (!selected) {
+            q.evalStatus = 'unanswered';
+            unattempted++;
+          } else if (selected === expected) {
+            q.evalStatus = 'correct';
+            correct++;
+            attempted++;
+          } else {
+            q.evalStatus = 'wrong';
+            wrong++;
+            attempted++;
+          }
+        });
+
+        vm.totalQ = total;
+        vm.correctCount = correct;
+        vm.wrongCount = wrong;
+        vm.unansweredCount = unattempted;
+        vm.attempted = attempted;
+        var score = (correct * (vm.markCorrect || 0)) + (wrong * (vm.markWrong || 0));
+        vm.finalScore = score;
+        var maxScore = total * (vm.markCorrect || 0);
+        vm.percent = maxScore ? Math.round((score / maxScore) * 100) : 0;
+        vm.grade = vm.percent >= 90 ? 'A' : vm.percent >= 75 ? 'B' : vm.percent >= 60 ? 'C' : vm.percent >= 40 ? 'D' : 'F';
+        vm.passFail = vm.percent >= 40 ? 'Pass' : 'Fail';
+      };
+
+      vm.autoEval = function() { vm.evaluate(); };
+
+      // filter & search
+      vm.filteredQuestions = function() {
+        var qs = vm.questions;
+        if (!qs) return [];
+        var f = vm.filter;
+        var search = vm.searchQ ? parseInt(vm.searchQ) : null;
+        return qs.filter(function(q, idx) {
+          var matchStatus = true;
+          if (f === 'correct') matchStatus = (q.evalStatus === 'correct');
+          else if (f === 'wrong') matchStatus = (q.evalStatus === 'wrong');
+          else if (f === 'unanswered') matchStatus = (q.evalStatus === 'unanswered');
+          var matchSearch = true;
+          if (search) matchSearch = (idx+1 === search);
+          return matchStatus && matchSearch;
+        });
+      };
+
+      // navigation
+      vm.scrollTo = function(pos) {
+        var el = document.querySelector('.sheet-container');
+        if (!el) return;
+        el.scrollTo({ top: pos === 'top' ? 0 : el.scrollHeight, behavior: 'smooth' });
+      };
+      vm.nextWrong = function() {
+        var idx = vm.questions.findIndex(function(q) { return q.evalStatus === 'wrong'; });
+        if (idx === -1) { showToast('No wrong answers'); return; }
+        var el = document.querySelector('.row.wrong');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      vm.prevWrong = function() {
+        var reversed = [...vm.questions].reverse();
+        var idx = reversed.findIndex(function(q) { return q.evalStatus === 'wrong'; });
+        if (idx === -1) { showToast('No wrong answers'); return; }
+        var el = document.querySelector('.row.wrong');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+
+      // export CSV
+      vm.exportCSV = function() {
+        var qs = vm.questions;
+        if (!qs || qs.length === 0) { showToast('No data to export'); return; }
+        var header = 'Q.No,Selected,Correct,Status,Marks\n';
+        var rows = qs.map(function(q, i) {
+          var keyArr = (vm.answerKey || '').split(/[,;\s]+/).filter(function(s) { return s.length > 0; });
+          var expected = (keyArr[i] || '').toUpperCase().trim();
+          var selected = q.selected || '';
+          var status = q.evalStatus || 'unanswered';
+          var marks = status === 'correct' ? (vm.markCorrect || 0) : (status === 'wrong' ? (vm.markWrong || 0) : 0);
+          return (i+1)+','+selected+','+expected+','+status+','+marks;
+        }).join('\n');
+        var blob = new Blob([header + rows], {type: 'text/csv'});
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'omr_results.csv';
+        link.click();
+        showToast('CSV exported');
+      };
+
+      // init
+      vm.generate();
+    }]);
+  </script>
+</body>
+</html>
